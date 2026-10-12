@@ -1,156 +1,142 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const ShoppingApp());
+  runApp(const ShoppingListApp());
 }
 
-class Item {
-  Item(this.name);
-
-  final String name;
-  bool bought = false;
-}
-
-class ShoppingApp extends StatelessWidget {
-  const ShoppingApp({super.key});
+class ShoppingListApp extends StatelessWidget {
+  const ShoppingListApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.green),
-      home: const HomeScreen(title: 'Shopping List'),
+      title: 'Shopping List',
+      theme: ThemeData(colorSchemeSeed: Colors.green, useMaterial3: true),
+      home: const ShoppingListPage(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.title});
+class Item {
+  String name;
+  bool bought;
+  Item(this.name, {this.bought = false});
+}
 
-  final String title;
+class ShoppingListPage extends StatefulWidget {
+  const ShoppingListPage({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<ShoppingListPage> createState() => _ShoppingListPageState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  final items = [Item('Milk'), Item('Bread'), Item('Rice')];
-  final controller = TextEditingController();
+class _ShoppingListPageState extends State<ShoppingListPage> {
+  final TextEditingController _controller = TextEditingController();
+  final List<Item> _items = [];
 
-  int get leftCount => items.where((item) => !item.bought).length;
-
-  void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  void addItem() {
-    final text = controller.text.trim();
+  void _addItem() {
+    final text = _controller.text.trim();
     if (text.isEmpty) {
-      showMessage('Type an item first');
-      return;
-    }
-    final exists = items.any(
-          (item) => item.name.toLowerCase() == text.toLowerCase(),
-    );
-    if (exists) {
-      showMessage('$text is already on the list');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Type an item first')),
+      );
       return;
     }
     setState(() {
-      items.add(Item(text));
+      _items.add(Item(text));
+      _controller.clear();
     });
-    controller.clear();
   }
 
-  void removeItem(int index) {
-    final name = items[index].name;
+  void _toggleBought(int index) {
     setState(() {
-      items.removeAt(index);
+      _items[index].bought = !_items[index].bought;
     });
-    showMessage('$name removed');
   }
 
-  void clearBought() {
+  void _deleteItem(int index) {
     setState(() {
-      items.removeWhere((item) => item.bought);
+      _items.removeAt(index);
     });
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final boughtCount = _items.where((i) => i.bought).length;
+    final notBoughtCount = _items.length - boughtCount;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.title} ($leftCount left)'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep),
-            tooltip: 'Remove bought items',
-            onPressed: clearBought,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+      appBar: AppBar(title: const Text('Shopping List')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: controller,
+                    controller: _controller,
                     decoration: const InputDecoration(
                       hintText: 'Add an item',
                       border: OutlineInputBorder(),
                     ),
-                    onSubmitted: (_) => addItem(),
+                    onSubmitted: (_) => _addItem(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: addItem,
-                  child: const Text('Add'),
-                ),
+                ElevatedButton(onPressed: _addItem, child: const Text('Add')),
               ],
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return ListTile(
-                  leading: Icon(
-                    item.bought ? Icons.check_circle : Icons.shopping_basket,
-                  ),
-                  title: Text(
-                    item.name,
-                    style: TextStyle(
-                      decoration:
-                      item.bought ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  onTap: () {
-                    setState(() {
-                      item.bought = !item.bought;
-                    });
-                  },
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => removeItem(index),
-                  ),
-                );
-              },
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Text('Not bought: $notBoughtCount',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Bought: $boughtCount',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.green)),
+              ],
             ),
-          ),
-        ],
+            const Divider(),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  return ListTile(
+                    leading: Icon(
+                      item.bought
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: item.bought ? Colors.green : Colors.grey,
+                    ),
+                    title: Text(
+                      item.name,
+                      style: TextStyle(
+                        decoration:
+                        item.bought ? TextDecoration.lineThrough : null,
+                        color: item.bought ? Colors.grey : null,
+                      ),
+                    ),
+                    subtitle: Text(item.bought ? 'Bought' : 'Not bought yet'),
+                    onTap: () => _toggleBought(index),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _deleteItem(index),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
